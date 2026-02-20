@@ -1,3 +1,8 @@
+---
+name: scrap-team
+description: Launch the Scrap Team — a dysfunctional Office-style scrum team that runs a real sprint to add features to the ScrApp Tracker. Use when the user wants to run the team simulation.
+---
+
 # Scrap Team Sprint
 
 Launch the Scrap Team — a dysfunctional Office-style scrum team that runs a real sprint to add features to the ScrApp Tracker.
