@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScrApp Tracker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+        header {
+            background: #1a1a2e;
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        header h1 { font-size: 1.4rem; font-weight: 700; }
+        header h1 span { color: #ff6b6b; }
+
+        .board {
+            display: flex;
+            gap: 16px;
+            padding: 24px;
+            overflow-x: auto;
+            min-height: calc(100vh - 64px);
+        }
+        .column {
+            background: #e8eaed;
+            border-radius: 12px;
+            min-width: 300px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 88px);
+        }
+        .column-header {
+            padding: 12px 16px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .column-header .count {
+            background: rgba(0,0,0,0.15);
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+        }
+        .column-cards {
+            padding: 0 8px 8px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: grab;
+            transition: box-shadow 0.15s;
+        }
+        .card:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+        .card.dragging { opacity: 0.5; }
+        .card-title { font-size: 0.9rem; font-weight: 500; margin-bottom: 8px; }
+        .card-assignee {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        .card-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .card-actions button {
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            color: #666;
+        }
+        .card-actions button:hover { background: #f5f5f5; }
+        .card-actions button.delete:hover { background: #fee; color: #c00; border-color: #fcc; }
+
+        .add-card-btn {
+            margin: 0 8px 8px;
+            padding: 8px;
+            background: none;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #888;
+            font-size: 0.85rem;
+            width: calc(100% - 16px);
+        }
+        .add-card-btn:hover { border-color: #999; color: #555; }
+
+        .drop-zone {
+            border: 2px dashed #4a9eff;
+            border-radius: 8px;
+            min-height: 60px;
+            margin: 4px 8px;
+            background: rgba(74, 158, 255, 0.05);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 400px;
+            max-width: 90vw;
+        }
+        .modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
+        .modal label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 4px; }
+        .modal input, .modal select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .modal-actions button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-primary { background: #1a1a2e; color: white; }
+        .btn-secondary { background: #e8eaed; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><span>Scr</span>App Tracker</h1>
+    </header>
+
+    <div class="board" id="board">
+        <div class="column" data-status="todo">
+            <div class="column-header">To Do <span class="count" id="count-todo">0</span></div>
+            <div class="column-cards" id="cards-todo"></div>
+            <button class="add-card-btn" onclick="openModal('todo')">+ Add task</button>
+        </div>
+        <div class="column" data-status="in-progress">
+            <div class="column-header">In Progress <span class="count" id="count-in-progress">0</span></div>
+            <div class="column-cards" id="cards-in-progress"></div>
+            <button class="add-card-btn" onclick="openModal('in-progress')">+ Add task</button>
+        </div>
+        <div class="column" data-status="done">
+            <div class="column-header">Done <span class="count" id="count-done">0</span></div>
+            <div class="column-cards" id="cards-done"></div>
+            <button class="add-card-btn" onclick="openModal('done')">+ Add task</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h2 id="modal-title">Add Task</h2>
+            <label for="task-title">Title</label>
+            <input type="text" id="task-title" placeholder="What needs to be done?">
+            <label for="task-assignee">Assignee</label>
+            <input type="text" id="task-assignee" placeholder="Who's working on this?">
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveTask()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = [
+            { id: 1, title: 'Set up project structure', assignee: 'Junior', status: 'done' },
+            { id: 2, title: 'Design kanban board layout', assignee: 'Junior', status: 'done' },
+            { id: 3, title: 'Implement drag and drop', assignee: 'Junior', status: 'in-progress' },
+            { id: 4, title: 'Add task editing', assignee: 'Junior', status: 'todo' },
+            { id: 5, title: 'Add task deletion', assignee: 'Junior', status: 'todo' },
+        ];
+        let nextId = 6;
+        let editingId = null;
+        let currentStatus = 'todo';
+
+        function render() {
+            ['todo', 'in-progress', 'done'].forEach(status => {
+                const container = document.getElementById(`cards-${status}`);
+                const statusTasks = tasks.filter(t => t.status === status);
+                document.getElementById(`count-${status}`).textContent = statusTasks.length;
+                container.innerHTML = statusTasks.map(task => `
+                    <div class="card" draggable="true" data-id="${task.id}"
+                         ondragstart="onDragStart(event)" ondragend="onDragEnd(event)">
+                        <div class="card-title">${escapeHtml(task.title)}</div>
+                        <div class="card-assignee">${escapeHtml(task.assignee)}</div>
+                        <div class="card-actions">
+                            <button onclick="editTask(${task.id})">Edit</button>
+                            <button class="delete" onclick="deleteTask(${task.id})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Drag and drop
+        function onDragStart(e) {
+            e.target.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', e.target.dataset.id);
+        }
+        function onDragEnd(e) { e.target.classList.remove('dragging'); }
+
+        document.querySelectorAll('.column-cards').forEach(col => {
+            col.addEventListener('dragover', e => { e.preventDefault(); });
+            col.addEventListener('drop', e => {
+                e.preventDefault();
+                const id = parseInt(e.dataTransfer.getData('text/plain'));
+                const newStatus = col.id.replace('cards-', '');
+                const task = tasks.find(t => t.id === id);
+                if (task) { task.status = newStatus; render(); }
+            });
+        });
+
+        // Modal
+        function openModal(status) {
+            currentStatus = status;
+            editingId = null;
+            document.getElementById('modal-title').textContent = 'Add Task';
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-assignee').value = '';
+            document.getElementById('modal-overlay').classList.add('active');
+            document.getElementById('task-title').focus();
+        }
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('active');
+        }
+        function editTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            editingId = id;
+            currentStatus = task.status;
+            document.getElementById('modal-title').textContent = 'Edit Task';
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-assignee').value = task.assignee;
+            document.getElementById('modal-overlay').classList.add('active');
+            document.getElementById('task-title').focus();
+        }
+        function saveTask() {
+            const title = document.getElementById('task-title').value.trim();
+            const assignee = document.getElementById('task-assignee').value.trim();
+            if (!title) return;
+            if (editingId) {
+                const task = tasks.find(t => t.id === editingId);
+                if (task) { task.title = title; task.assignee = assignee; }
+            } else {
+                tasks.push({ id: nextId++, title, assignee, status: currentStatus });
+            }
+            closeModal();
+            render();
+        }
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            render();
+        }
+
+        // Close modal on overlay click
+        document.getElementById('modal-overlay').addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+
+        // Enter key saves
+        document.getElementById('task-assignee').addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveTask();
+        });
+
+        render();
+    </script>
+</body>
+</html>
